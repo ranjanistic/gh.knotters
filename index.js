@@ -31,7 +31,20 @@ module.exports = (app) => {
       console.log("Error while installing event", e)
     }
   })
-  
+  app.on("installation_repositories", async(ctx)=>{
+    try{
+      let done = await axios.post(process.env.SUPERSERVER_HOOK, {
+        id:ctx.id,
+        name:ctx.name,
+        payload:ctx.payload
+      })
+      done.status === 200 ? app.log.info("Successfull event triggerd "+ctx.name) : app.log.error("Failed to trigger "+ctx.name)
+      app.log.info(done.data.data)
+    } catch(e) {
+      console.log(ctx.name, ctx.id)
+      console.log("Error while installing event", e)
+    }
+  })
   app.on("push", async (context) => {
     // send payload to webhook
     const payload = context.payload;

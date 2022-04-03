@@ -26,6 +26,7 @@ jobs:
     - run: npm test
 
   deploy:
+    needs: build
     runs-on: [self-hosted, x64, linux, bot, production, nodejs]
 
     steps:

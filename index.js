@@ -5,59 +5,140 @@ const axios = require("axios").default;
  * @param {import('probot').Probot} app
  */
 module.exports = (app) => {
-  app.log.info("Yay, the app was loaded!");
-  app.log.info(process.env.INTERNAL_SHARED_SECRET);
-  app.log.info(process.env.SUPERSERVER_HOOK);
-
-  axios.defaults.headers.common["Authorization"] = process.env.INTERNAL_SHARED_SECRET;
-  app.on("issues.opened", async (context) => {
-    const issueComment = context.issue({
-      body: "Thanks for opening this issue!",
-    });
-    return context.octokit.issues.createComment(issueComment);
-  });
-
-  app.on("installation", async(ctx)=>{
-    try{
-      let done = await axios.post(process.env.SUPERSERVER_HOOK, {
-        id:ctx.id,
-        name:ctx.name,
-        payload:ctx.payload
-      })
-      done.status === 200 ? app.log.info("Successfull event triggerd "+ctx.name) : app.log.error("Failed to trigger "+ctx.name)
-      app.log.info(done.data.data)
-    } catch(e) {
-      console.log(ctx.name, ctx.id)
-      console.log("Error while installing event", e)
-    }
-  })
-  app.on("installation_repositories", async(ctx)=>{
-    try{
-      let done = await axios.post(process.env.SUPERSERVER_HOOK, {
-        id:ctx.id,
-        name:ctx.name,
-        payload:ctx.payload
-      })
-      done.status === 200 ? app.log.info("Successfull event triggerd "+ctx.name) : app.log.error("Failed to trigger "+ctx.name)
-      app.log.info(done.data.data)
-    } catch(e) {
-      console.log(ctx.name, ctx.id)
-      console.log("Error while installing event", e)
-    }
-  })
-  app.on("push", async (context) => {
-    // send payload to webhook
-    const payload = context.payload;
-    const webhook = process.env.WEBHOOK_URL;
-    const options = {
-      method: "POST",
-      uri: webhook,
-      body: payload,
-      json: true,
+    const logError = (e, ctx) => {
+        app.log.error("===========ERROR=============");
+        app.log.error(`Error while ${ctx.name} event`);
+        app.log.error(ctx.name);
+        app.log.error(ctx.id);
+        app.log.error(e);
+        app.log.error("===========ENDERROR===========");
     };
-    const response = await request(options);
-    console.log(response);
+    app.log.info("Github Knottersbot is up!");
+    app.log.info("Super server: " + process.env.SUPERSERVER_HOOK);
+    axios.defaults.headers.common["Authorization"] =
+        process.env.INTERNAL_SHARED_SECRET;
+    app.on("issues.opened", async (context) => {
+        const issueComment = context.issue({
+            body: "Thanks for opening this issue!",
+        });
+        return context.octokit.issues.createComment(issueComment);
+    });
 
-    context.payload
-  });
+    app.on("installation", async (ctx) => {
+        try {
+            let done = await axios.post(process.env.SUPERSERVER_HOOK, {
+                id: ctx.id,
+                name: ctx.name,
+                payload: ctx.payload,
+            });
+            if (done.status !== 200) {
+                return logError("Failed to trigger", ctx);
+            }
+        } catch (e) {
+            logError(e, ctx);
+        }
+    });
+
+    app.on("installation_repositories", async (ctx) => {
+        try {
+            let done = await axios.post(process.env.SUPERSERVER_HOOK, {
+                id: ctx.id,
+                name: ctx.name,
+                payload: ctx.payload,
+            });
+            if (done.status !== 200) {
+                return logError("Failed to trigger", ctx);
+            }
+            let content =
+                "https://img.shields.io/static/v1?label=Knotters&message=Project&color=1657ce&link=https://knotters.org&style=for-the-badge";
+            ctx.payload.repositories_added
+                .filter((repo) => !repo.private)
+                .map(async (repo) => {
+                    try {
+                        const result = await ctx.octokit.repos.getContent({
+                            owner: ctx.payload.installation.account.login,
+                            repo: repo.name,
+                            path: "README.md",
+                        });
+                        if (result.status === 200) {
+                            content = Buffer.from(
+                                `\n\n${content}\n\n${Buffer.from(
+                                    result.data.content,
+                                    "base64"
+                                ).toString("utf8")}`
+                            ).toString("base64");
+                            ctx.octokit.repos.createOrUpdateFileContents({
+                                owner: ctx.payload.installation.account.login,
+                                repo: repo.name,
+                                path: result.data.path || "README.md",
+                                message: result.data.path
+                                    ? "Update README.md"
+                                    : "Add README.md",
+                                content: content,
+                                sha: result.data.sha,
+                            });
+                        }
+                        return;
+                    } catch {
+                        content = Buffer.from(
+                            `${repo.name}\n\n${content}\n\n`
+                        ).toString("base64");
+                        ctx.octokit.repos.createOrUpdateFileContents({
+                            owner: ctx.payload.installation.account.login,
+                            repo: repo.name,
+                            path: "README.md",
+                            message: "Add README.md",
+                            content: content,
+                        });
+                    }
+                });
+        } catch (e) {
+            logError(e, ctx);
+        }
+    });
+
+    app.on("push", async (ctx) => {
+        try {
+            let repo = await ctx.github.repos.get({
+                owner: ctx.payload.repository.owner.login,
+                repo: ctx.payload.repository.name,
+            });
+            if (repo.data.private) {
+                return;
+            }
+            let done = await axios.post(process.env.SUPERSERVER_HOOK, {
+                id: ctx.id,
+                name: ctx.name,
+                payload: ctx.payload,
+            });
+            if (done.status !== 200) {
+                logError("Failed to trigger", ctx);
+            }
+        } catch (e) {
+            logError(e, ctx);
+        }
+    });
+
+    app.on("pull_request", async (ctx) => {
+        try {
+            let repo = await ctx.github.repos.get({
+                owner: ctx.payload.repository.owner.login,
+                repo: ctx.payload.repository.name,
+            });
+            if (repo.data.private) {
+                return;
+            }
+            let done = await axios.post(process.env.SUPERSERVER_HOOK, {
+                id: ctx.id,
+                name: ctx.name,
+                payload: ctx.payload,
+            });
+
+            if (done.status !== 200) {
+                logError("Failed to trigger", ctx);
+            }
+        } catch (e) {
+            logError(e, ctx);
+        }
+    });
 };

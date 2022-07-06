@@ -3,6 +3,12 @@ name: Bot Node.js CI
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '**/*.md'
+      - '*.md'
+      - '.gitignore'
+      - ".github/**"
 
 jobs:
   build:

@@ -1,6 +1,6 @@
 # knotters-bot
 
-> A GitHub App built with [Probot](https://github.com/probot/probot) that The knottersbot to help you grow on Knotters via your GitHub activities.
+> The knottersbot to help Knotters track GitHub activities.
 
 ## Setup
 
@@ -28,6 +28,4 @@ If you have suggestions for how knotters-bot could be improved, or want to repor
 
 For more, check out the [Contributing Guide](CONTRIBUTING.md).
 
-## License
-
-[ISC](LICENSE) © 2021 Knotters <contact@knotters.org>
+© 2022 Knotters <contact@knotters.org>

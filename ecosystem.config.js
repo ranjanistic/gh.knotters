@@ -1,7 +1,7 @@
 module.exports = {
     apps:[{
             name: "bot.knotters.org/github",
-            cwd: "./bot",
+            cwd: ".",
             script: "npm",
             args: "start",
             instances: 1,

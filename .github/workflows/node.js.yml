@@ -35,6 +35,12 @@ jobs:
     runs-on: [self-hosted, x64, linux, bot, production, nodejs]
 
     steps:
-    - name: Merge changes
-      run: git pull origin main --depth=100
-    - run: npm install
+    - uses: actions/checkout@v2
+      with:
+        clean: false
+    - run: |
+        export PATH="$PATH:/home/ubuntu/.nvm/versions/node/v18.14.2/bin"
+        npm install
+        echo "${{ secrets.ENV_PROD }}" > .env
+        echo "${{ secrets.BOT_PRIVATE_KEY }}" > knotters-bot.private-key.pem
+        pm2 reload ecosystem.config.js --update-env
